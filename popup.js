@@ -6,7 +6,7 @@ class PopupManager {
     this.currentResults = null;
     this.settings = {
       gemmaEndpoint: 'http://localhost:11434/api/generate',
-      gemmaModel: 'gemma2:3b',
+      gemmaModel: 'gemma3n:latest',
       maxResults: 20,
       enableCache: true
     };
