@@ -234,7 +234,7 @@ class WebScrapingOrchestrator {
           options: {
             temperature: 0.1,
             top_p: 0.9,
-            num_predict: 500
+            max_tokens: 500
           }
         })
       });
@@ -244,7 +244,7 @@ class WebScrapingOrchestrator {
       }
 
       const data = await response.json();
-      const analysisText = data.response || '';
+      const analysisText = data.response || data.text || '';
       
       // Parse JSON response from Gemma
       const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
@@ -329,17 +329,21 @@ class WebScrapingOrchestrator {
 
   // Perform actual web scraping
   async performScraping(analysisResult) {
+    let tab = null;
     try {
       console.log(`🌐 Scraping: ${analysisResult.url}`);
 
       // Create a new tab for scraping
-      const tab = await chrome.tabs.create({ 
+      tab = await chrome.tabs.create({ 
         url: analysisResult.url, 
         active: false 
       });
 
       // Wait for page to load
       await this.waitForTabLoad(tab.id);
+
+      // Add additional wait for dynamic content
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
       // Inject content script and extract data
       const results = await chrome.scripting.executeScript({
@@ -348,69 +352,146 @@ class WebScrapingOrchestrator {
         args: [analysisResult.selectors]
       });
 
+      // Check if results are valid
+      if (!results || !results[0] || !results[0].result) {
+        throw new Error('Content script execution failed - no results returned');
+      }
+
+      const result = results[0].result;
+      
       // Close the scraping tab
       await chrome.tabs.remove(tab.id);
+      tab = null;
 
       return {
         url: analysisResult.url,
         strategy: analysisResult.scraping_strategy,
-        html: results[0].result.html,
-        data: results[0].result.data
+        html: result.html || '',
+        data: result.data || []
       };
 
     } catch (error) {
       console.error('❌ Scraping failed:', error);
+      
+      // Clean up tab if it exists
+      if (tab) {
+        try {
+          await chrome.tabs.remove(tab.id);
+        } catch (closeError) {
+          console.warn('Failed to close tab:', closeError);
+        }
+      }
+      
       throw new Error(`Scraping failed: ${error.message}`);
     }
   }
 
   // Wait for tab to finish loading
   waitForTabLoad(tabId) {
-    return new Promise((resolve) => {
-      const listener = (changedTabId, changeInfo) => {
-        if (changedTabId === tabId && changeInfo.status === 'complete') {
-          chrome.tabs.onUpdated.removeListener(listener);
-          // Additional wait for dynamic content
-          setTimeout(resolve, 2000);
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        chrome.tabs.onUpdated.removeListener(listener);
+        reject(new Error('Tab loading timeout'));
+      }, 30000); // 30 second timeout
+
+      const listener = (changedTabId, changeInfo, tab) => {
+        if (changedTabId === tabId) {
+          console.log(`📄 Tab ${tabId} status: ${changeInfo.status}, URL: ${tab?.url}`);
+          
+          if (changeInfo.status === 'complete') {
+            clearTimeout(timeout);
+            chrome.tabs.onUpdated.removeListener(listener);
+            console.log(`✅ Tab ${tabId} loaded successfully`);
+            // Additional wait for dynamic content
+            setTimeout(resolve, 2000);
+          }
         }
       };
+      
       chrome.tabs.onUpdated.addListener(listener);
+      
+      // Also check if tab is already loaded
+      chrome.tabs.get(tabId).then(tab => {
+        if (tab.status === 'complete') {
+          clearTimeout(timeout);
+          chrome.tabs.onUpdated.removeListener(listener);
+          console.log(`✅ Tab ${tabId} was already loaded`);
+          setTimeout(resolve, 1000);
+        }
+      }).catch(error => {
+        console.warn('Error checking tab status:', error);
+      });
     });
   }
 
   // Content extraction function (injected into target page)
   extractPageContent(selectors) {
     try {
+      console.log('🔍 Starting content extraction with selectors:', selectors);
+      
       const data = [];
+      
+      // Ensure selectors exist and have primary selector
+      if (!selectors || !selectors.primary) {
+        console.warn('⚠️ No primary selector provided, using fallback');
+        selectors = {
+          primary: 'div, article, section',
+          secondary: '.price, [class*="price"], .cost'
+        };
+      }
+
       const elements = document.querySelectorAll(selectors.primary);
+      console.log(`📊 Found ${elements.length} elements with primary selector: ${selectors.primary}`);
       
       elements.forEach((element, index) => {
         if (index >= 20) return; // Limit to first 20 results
         
-        const item = {
-          title: element.querySelector('h3, h2, h1, .title, [title]')?.textContent?.trim() || 'No title',
-          price: element.querySelector(selectors.secondary)?.textContent?.trim() || 'Price not found',
-          link: element.querySelector('a')?.href || '',
-          description: element.querySelector('.description, p')?.textContent?.trim()?.substring(0, 200) || '',
-          rating: element.querySelector('.rating, .stars, [data-rating]')?.textContent?.trim() || 'No rating'
-        };
-        
-        data.push(item);
+        try {
+          const item = {
+            title: element.querySelector('h3, h2, h1, .title, [title], .product-title, .name')?.textContent?.trim() || 
+                   element.textContent?.trim()?.substring(0, 100) || 
+                   `Item ${index + 1}`,
+            price: element.querySelector(selectors.secondary || '.price, [class*="price"], .cost, .amount')?.textContent?.trim() || 'Price not found',
+            link: element.querySelector('a')?.href || '',
+            description: element.querySelector('.description, p, .summary')?.textContent?.trim()?.substring(0, 200) || '',
+            rating: element.querySelector('.rating, .stars, [data-rating], .review')?.textContent?.trim() || 'No rating',
+            selector: selectors.primary,
+            elementIndex: index
+          };
+          
+          data.push(item);
+        } catch (itemError) {
+          console.warn(`⚠️ Error processing item ${index}:`, itemError);
+        }
       });
 
-      return {
+      const result = {
         html: document.documentElement.outerHTML.substring(0, 50000), // Limit HTML size
         data: data,
         timestamp: Date.now(),
-        url: window.location.href
+        url: window.location.href,
+        title: document.title,
+        selectorsUsed: selectors,
+        elementsFound: elements.length
       };
+
+      console.log('✅ Content extraction completed:', {
+        dataItems: data.length,
+        url: window.location.href,
+        title: document.title
+      });
+
+      return result;
+      
     } catch (error) {
+      console.error('❌ Content extraction error:', error);
       return {
-        html: '',
+        html: document.documentElement.outerHTML.substring(0, 10000) || '',
         data: [],
         error: error.message,
         timestamp: Date.now(),
-        url: window.location.href
+        url: window.location.href || 'unknown',
+        title: document.title || 'unknown'
       };
     }
   }
@@ -418,8 +499,16 @@ class WebScrapingOrchestrator {
   // Extract and structure data using Gemma 3
   async extractDataWithGemma(scrapingResult) {
     try {
+      console.log('🧠 Processing scraped data:', {
+        hasData: !!(scrapingResult.data && scrapingResult.data.length > 0),
+        dataLength: scrapingResult.data?.length || 0,
+        hasHtml: !!(scrapingResult.html && scrapingResult.html.length > 0),
+        htmlLength: scrapingResult.html?.length || 0
+      });
+
       // If we already have structured data from scraping, enhance it with Gemma
       if (scrapingResult.data && scrapingResult.data.length > 0) {
+        console.log(`✅ Using direct scraping data: ${scrapingResult.data.length} items`);
         return {
           success: true,
           source: 'direct_scraping',
@@ -445,7 +534,7 @@ class WebScrapingOrchestrator {
           options: {
             temperature: 0.1,
             top_p: 0.9,
-            num_predict: 1000
+            max_tokens: 1000
           }
         })
       });
@@ -455,7 +544,7 @@ class WebScrapingOrchestrator {
       }
 
       const data = await response.json();
-      const extractionText = data.response || '';
+      const extractionText = data.response || data.text || '';
       
       // Parse JSON response from Gemma
       const jsonMatch = extractionText.match(/\{[\s\S]*\}/);
