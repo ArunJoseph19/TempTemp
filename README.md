@@ -47,6 +47,28 @@ ollama serve
 
 The Gemma API should be accessible at `http://localhost:11434/api/generate`
 
+### Quick Setup Verification
+```bash
+# 1. Check if Ollama is running
+curl http://localhost:11434/api/tags
+
+# 2. If not running, start Ollama
+ollama serve
+
+# 3. Check available models
+ollama list
+
+# 4. If gemma2:3b not found, install it
+ollama pull gemma2:3b
+
+# 5. Test generate API
+curl http://localhost:11434/api/generate -d '{
+  "model": "gemma2:3b",
+  "prompt": "Hello",
+  "stream": false
+}'
+```
+
 ## 🛠️ Installation
 
 ### Method 1: Load Unpacked Extension (Development)
@@ -176,10 +198,13 @@ smart-web-scraper/
 - Verify internet connection
 
 #### Gemma Connection Failed
-- Ensure Ollama is running on port 11434
+- Ensure Ollama is running on port 11434: `ollama serve`
+- Check if the model is installed: `ollama list`
+- If model not found, install it: `ollama pull gemma2:3b`
 - Check firewall settings
 - Try restarting Ollama service
 - Verify API endpoint in settings
+- Test manually with: `curl http://localhost:11434/api/tags`
 
 #### Slow Performance
 - Enable caching in settings

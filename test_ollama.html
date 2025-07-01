@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Ollama Connection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #5a67d8;
+        }
+        
+        .result {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #667eea;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .error {
+            border-left-color: #e53e3e;
+            background: #fed7d7;
+        }
+        
+        .success {
+            border-left-color: #38a169;
+            background: #c6f6d5;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Ollama API Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Test Ollama Connection</h2>
+        <p>This will test if Ollama is running and accessible.</p>
+        <button onclick="testConnection()">Test Connection</button>
+        <div id="connectionResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. List Available Models</h2>
+        <p>This will list all models available in your Ollama installation.</p>
+        <button onclick="listModels()">List Models</button>
+        <div id="modelsResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Test Generate API</h2>
+        <p>This will test the /api/generate endpoint with gemma2:3b model.</p>
+        <button onclick="testGenerate()">Test Generate</button>
+        <div id="generateResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Test Query Analysis</h2>
+        <p>This will test our smart query analysis with Gemma.</p>
+        <input type="text" id="testQuery" placeholder="Enter test query (e.g., 'laptop under 50000')" style="width: 300px; padding: 8px;">
+        <button onclick="testQueryAnalysis()">Analyze Query</button>
+        <div id="queryResult"></div>
+    </div>
+
+    <script>
+        const OLLAMA_BASE_URL = 'http://localhost:11434';
+        
+        function displayResult(elementId, content, isError = false, isSuccess = false) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${isError ? 'error' : ''} ${isSuccess ? 'success' : ''}">${content}</div>`;
+        }
+        
+        async function testConnection() {
+            displayResult('connectionResult', 'Testing connection...');
+            
+            try {
+                const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`);
+                
+                if (response.ok) {
+                    displayResult('connectionResult', '✅ Connection successful! Ollama is running.', false, true);
+                } else {
+                    displayResult('connectionResult', `❌ Connection failed: ${response.status} ${response.statusText}`, true);
+                }
+            } catch (error) {
+                displayResult('connectionResult', `❌ Connection error: ${error.message}`, true);
+            }
+        }
+        
+        async function listModels() {
+            displayResult('modelsResult', 'Fetching models...');
+            
+            try {
+                const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.models && data.models.length > 0) {
+                    const modelList = data.models.map(model => 
+                        `• ${model.name} (${(model.size / 1024 / 1024 / 1024).toFixed(2)} GB)`
+                    ).join('\n');
+                    
+                    displayResult('modelsResult', `✅ Found ${data.models.length} models:\n\n${modelList}`, false, true);
+                } else {
+                    displayResult('modelsResult', '⚠️ No models found. Please run "ollama pull gemma2:3b" first.', true);
+                }
+            } catch (error) {
+                displayResult('modelsResult', `❌ Error fetching models: ${error.message}`, true);
+            }
+        }
+        
+        async function testGenerate() {
+            displayResult('generateResult', 'Testing generate API...');
+            
+            try {
+                const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: 'gemma2:3b',
+                        prompt: 'Say hello in one word',
+                        stream: false
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                displayResult('generateResult', 
+                    `✅ Generate API working!\n\nModel: ${data.model}\nResponse: "${data.response}"\nDone: ${data.done}`, 
+                    false, true
+                );
+            } catch (error) {
+                displayResult('generateResult', `❌ Generate API error: ${error.message}`, true);
+            }
+        }
+        
+        async function testQueryAnalysis() {
+            const query = document.getElementById('testQuery').value.trim();
+            
+            if (!query) {
+                displayResult('queryResult', '⚠️ Please enter a test query', true);
+                return;
+            }
+            
+            displayResult('queryResult', 'Analyzing query with Gemma...');
+            
+            const prompt = `
+You are a query analyzer for a web scraping extension. Your job is to determine the target website and construct the exact URL to scrape real data from.
+
+CRITICAL RULE: You only help determine WHERE to scrape real data. You NEVER generate or make up any product prices, flight times, or other information.
+
+Given a user query, analyze it and respond with ONLY a JSON object in this exact format:
+{
+  "website": "amazon|flights|tracking|google|shopping|flipkart|myntra|zomato|swiggy",
+  "url": "complete_url_to_scrape",
+  "scraping_strategy": "product_list|flight_search|tracking_info|general_search|restaurant_search",
+  "selectors": {
+    "primary": "css_selector_for_main_content",
+    "secondary": "css_selector_for_additional_data"
+  }
+}
+
+Examples:
+- "laptop under 50000" → amazon search
+- "flights to Mumbai" → flights search
+- "track package ABC123" → tracking page
+- "restaurants near me" → zomato/swiggy search
+
+User Query: ${query}
+`;
+            
+            try {
+                const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: 'gemma2:3b',
+                        prompt: prompt,
+                        stream: false,
+                        options: {
+                            temperature: 0.1,
+                            top_p: 0.9,
+                            num_predict: 500
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const analysisText = data.response || '';
+                
+                // Try to parse JSON from response
+                const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+                
+                if (jsonMatch) {
+                    try {
+                        const analysis = JSON.parse(jsonMatch[0]);
+                        displayResult('queryResult', 
+                            `✅ Query analysis successful!\n\nQuery: "${query}"\n\nAnalysis:\n${JSON.stringify(analysis, null, 2)}`, 
+                            false, true
+                        );
+                    } catch (parseError) {
+                        displayResult('queryResult', 
+                            `⚠️ Got response but couldn't parse JSON:\n\nRaw response: "${analysisText}"\n\nParse error: ${parseError.message}`, 
+                            true
+                        );
+                    }
+                } else {
+                    displayResult('queryResult', 
+                        `⚠️ No JSON found in response:\n\nRaw response: "${analysisText}"`, 
+                        true
+                    );
+                }
+            } catch (error) {
+                displayResult('queryResult', `❌ Query analysis error: ${error.message}`, true);
+            }
+        }
+        
+        // Auto-test connection on load
+        window.addEventListener('load', () => {
+            testConnection();
+        });
+    </script>
+</body>
+</html>

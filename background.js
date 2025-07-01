@@ -234,7 +234,7 @@ class WebScrapingOrchestrator {
           options: {
             temperature: 0.1,
             top_p: 0.9,
-            max_tokens: 500
+            num_predict: 500
           }
         })
       });
@@ -244,7 +244,7 @@ class WebScrapingOrchestrator {
       }
 
       const data = await response.json();
-      const analysisText = data.response || data.text || '';
+      const analysisText = data.response || '';
       
       // Parse JSON response from Gemma
       const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
@@ -445,7 +445,7 @@ class WebScrapingOrchestrator {
           options: {
             temperature: 0.1,
             top_p: 0.9,
-            max_tokens: 1000
+            num_predict: 1000
           }
         })
       });
@@ -455,7 +455,7 @@ class WebScrapingOrchestrator {
       }
 
       const data = await response.json();
-      const extractionText = data.response || data.text || '';
+      const extractionText = data.response || '';
       
       // Parse JSON response from Gemma
       const jsonMatch = extractionText.match(/\{[\s\S]*\}/);
