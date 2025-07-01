@@ -1,0 +1,39 @@
+{
+  "name": "smart-web-scraper-gemma3",
+  "version": "1.0.0",
+  "description": "AI-powered web scraping extension using Gemma 3 for intelligent data extraction",
+  "main": "background.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint *.js",
+    "build": "echo \"Building extension...\" && zip -r smart-web-scraper.zip . -x node_modules/\\* .git/\\* *.zip",
+    "dev": "echo \"Load extension in Chrome: chrome://extensions/ -> Load unpacked\"",
+    "validate": "web-ext lint",
+    "start-ollama": "ollama serve"
+  },
+  "keywords": [
+    "chrome-extension",
+    "web-scraping",
+    "gemma3",
+    "ai",
+    "data-extraction",
+    "ollama"
+  ],
+  "author": "Smart Scraper Team",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "web-ext": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/smart-web-scraper-gemma3"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/smart-web-scraper-gemma3/issues"
+  },
+  "homepage": "https://github.com/your-username/smart-web-scraper-gemma3#readme"
+}

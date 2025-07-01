@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Web Scraper</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <h1>🔍 Smart Scraper</h1>
+                <span class="subtitle">Powered by Gemma 3</span>
+            </div>
+            <div class="status-indicator" id="statusIndicator">
+                <span class="status-dot"></span>
+                <span class="status-text">Connecting...</span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="search-section">
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="queryInput" 
+                        placeholder="Enter your search query (e.g., 'laptop under 50000', 'flights to Mumbai')"
+                        autocomplete="off"
+                    >
+                    <button id="searchBtn" class="search-btn">
+                        <span class="btn-text">Search</span>
+                        <span class="btn-loader"></span>
+                    </button>
+                </div>
+                
+                <div class="quick-actions">
+                    <button class="quick-btn" data-query="gaming laptop under 80000">💻 Gaming Laptops</button>
+                    <button class="quick-btn" data-query="flights to Goa">✈️ Flights</button>
+                    <button class="quick-btn" data-query="restaurants near me">🍽️ Restaurants</button>
+                    <button class="quick-btn" data-query="phone under 25000">📱 Mobiles</button>
+                </div>
+            </div>
+
+            <div class="results-section" id="resultsSection">
+                <div class="results-header">
+                    <h3>Results</h3>
+                    <div class="results-meta" id="resultsMeta"></div>
+                </div>
+                <div class="results-content" id="resultsContent">
+                    <div class="empty-state">
+                        <div class="empty-icon">🔍</div>
+                        <p>Enter a search query to get started</p>
+                        <small>Try searching for products, flights, restaurants, or any web content</small>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-label">Active Requests:</span>
+                    <span class="stat-value" id="activeRequests">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Cache Size:</span>
+                    <span class="stat-value" id="cacheSize">0</span>
+                </div>
+            </div>
+            <div class="footer-actions">
+                <button id="clearCacheBtn" class="action-btn">Clear Cache</button>
+                <button id="settingsBtn" class="action-btn">Settings</button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="modal" id="loadingModal">
+        <div class="modal-content">
+            <div class="loading-animation">
+                <div class="loading-dots">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+                <p id="loadingText">Analyzing your query...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Settings</h3>
+                <button class="close-btn" id="closeSettings">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label for="gemmaEndpoint">Gemma API Endpoint:</label>
+                    <input type="text" id="gemmaEndpoint" placeholder="http://localhost:11434/api/generate">
+                </div>
+                <div class="setting-group">
+                    <label for="gemmaModel">Gemma Model:</label>
+                    <input type="text" id="gemmaModel" placeholder="gemma2:3b">
+                </div>
+                <div class="setting-group">
+                    <label for="maxResults">Max Results:</label>
+                    <input type="number" id="maxResults" min="5" max="50" value="20">
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="enableCache" checked>
+                        Enable Result Caching
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="saveSettings" class="save-btn">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
